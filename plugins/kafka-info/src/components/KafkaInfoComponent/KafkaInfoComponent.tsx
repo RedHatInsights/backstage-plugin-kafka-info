@@ -46,7 +46,6 @@ export function KafkaInfoComponent() {
       .then(response => response.text())
       .then(text => {
         setMetricResponse(text);
-        setLoading(false);
       })
       .catch(error => {
         setError(true);
@@ -56,12 +55,14 @@ export function KafkaInfoComponent() {
   }, []);
 
   useEffect(() => {
+    setLoading(true);
     const parsed = parsePrometheusTextFormat(metricResponse);
     const filteredMetric = parsed.filter((ent) => ent.name == 'kafka_consumergroup_group_topic_sum_lag')
     const filteredGroup = filteredMetric[0]?.metrics.filter((mentry) => consumerGroup.some(e => e === mentry.labels.group));
     if (filteredGroup) {
       setParsedResponse(filteredGroup);
     }
+    setLoading(false);
   }, [metricResponse]);
 
   if (loading) {
