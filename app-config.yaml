@@ -53,6 +53,7 @@ proxy:
   endpoints:
     '/kafka-lag':
       target: 'http://localhost:34568'
+      credentials: dangerously-allow-unauthenticated
 
 # Reference documentation http://backstage.io/docs/features/techdocs/configuration
 # Note: After experimenting with basic setup, use CI/CD to generate docs

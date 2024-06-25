@@ -38,7 +38,7 @@ export function KafkaInfoComponent() {
   const backendUrl = config.getString('backend.baseUrl');
 
   // Get defined consumer group from entity
-  const consumerGroup = entity.metadata.annotations?.[KAFKA_INFO_ANNOTATION] ?? '';
+  const consumerGroup = entity.metadata.annotations?.[KAFKA_INFO_ANNOTATION].split(',') ?? '';
 
   useEffect(() => {
     setLoading(true);
@@ -58,7 +58,7 @@ export function KafkaInfoComponent() {
   useEffect(() => {
     const parsed = parsePrometheusTextFormat(metricResponse);
     const filteredMetric = parsed.filter((ent) => ent.name == 'kafka_consumergroup_group_topic_sum_lag')
-    const filteredGroup = filteredMetric[0]?.metrics.filter((mentry) => mentry.labels.group == consumerGroup);
+    const filteredGroup = filteredMetric[0]?.metrics.filter((mentry) => consumerGroup.some(e => e === mentry.labels.group));
     if (filteredGroup) {
       setParsedResponse(filteredGroup);
     }

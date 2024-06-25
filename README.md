@@ -8,7 +8,7 @@ You can find the plugin code in `plugins/kafka-info`
 
 ### Entity Page Cards
 This plugin provides a basic info card component that can be mounted on a catalog entry page.
-* `KafkaInfoComponent`: Shows active topics and and consumer lag for any catalog entry with the appropriate `kafka-info/consumer-group` annotation.
+* `KafkaInfoComponent`: Shows active topics and and consumer lag for any catalog entry with the appropriate `kafka-info/consumer-groups` annotation.
 
 ## Configuration
 This plugin requires an instance of seglo/lag-exporter or kafka-exporter from which it pulls consumer information for annotated entities.
@@ -38,7 +38,7 @@ dynamicPlugins:
                 xs: "span 4"
 ```
 
-Finally, for any component where Kafka consumer information is desired, add the annotation `kafka-info/consumer-group: <consumer-group-name>`.
+Finally, for any component where Kafka consumer information is desired, add the annotation `kafka-info/consumer-groups: consumer-group1,consumer-group2`.
 
 ## Development
 To start the app, run:
