@@ -11,14 +11,14 @@ This plugin provides a basic info card component that can be mounted on a catalo
 * `KafkaInfoComponent`: Shows active topics and and consumer lag for any catalog entry with the appropriate `kafka-info/consumer-groups` annotation.
 
 ## Configuration
-This plugin requires an instance of seglo/lag-exporter or kafka-exporter from which it pulls consumer information for annotated entities.
+This plugin requires an instance of seglo/lag-exporter or kafka-exporter and related prometheus server from which it pulls consumer information for annotated entities.
 
 In `app-config.yaml` first add the proxy:
 
 ```yaml
 proxy:
   endpoints:
-    '/kafka-lag': 'https://lag-exporter.company.com/metrics'
+    '/kafka-lag': 'https://prometheus_endpoint/'
 ```
 
 Also in `app-config.yaml` add `redhatinsights.backstage-plugin-kafka-info` and the card component configs into the dynamic plugins section.

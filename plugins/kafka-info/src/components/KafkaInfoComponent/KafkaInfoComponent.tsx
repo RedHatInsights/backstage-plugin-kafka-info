@@ -17,9 +17,6 @@ import { useEntity } from '@backstage/plugin-catalog-react';
 // These will let us get info about our backstage configuration
 import { useApi, configApiRef } from '@backstage/core-plugin-api';
 
-// We're largely using kafka-lag-exporter data currently, this helps us parse it
-import parsePrometheusTextFormat from 'parse-prometheus-text-format';
-
 export function KafkaInfoComponent() {
   const { entity } = useEntity();
   const title = 'Kafka Information';
@@ -31,8 +28,8 @@ export function KafkaInfoComponent() {
   const [error, setError] = useState(false);
 
   // Set up some state info for the response from the backend
-  const [metricResponse, setMetricResponse] = useState<String>('');
-  const [parsedResponse, setParsedResponse] = useState<Array>([]);
+  const [metricResponse, setMetricResponse] = useState<Object>({});
+  const [filteredResponse, setFilteredResponse] = useState<Object>({});
 
   // Get backend URL from the config
   const backendUrl = config.getString('backend.baseUrl');
@@ -42,8 +39,12 @@ export function KafkaInfoComponent() {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`${backendUrl}/api/proxy/kafka-lag/metrics`)
-      .then(response => response.text())
+    // Directly query a prometheus endpoint for metric data
+    fetch(`${backendUrl}/api/proxy/kafka-lag/query?query=kafka_consumergroup_group_topic_sum_lag`)
+      .then(response => {
+        const jsonMetrics = response.json();
+        return jsonMetrics
+      })
       .then(text => {
         setMetricResponse(text);
       })
@@ -56,12 +57,13 @@ export function KafkaInfoComponent() {
 
   useEffect(() => {
     setLoading(true);
-    const parsed = parsePrometheusTextFormat(metricResponse);
-    const filteredMetric = parsed.filter((ent) => ent.name == 'kafka_consumergroup_group_topic_sum_lag')
-    const filteredGroup = filteredMetric[0]?.metrics.filter((mentry) => consumerGroup.some(e => e === mentry.labels.group));
-    if (filteredGroup) {
-      setParsedResponse(filteredGroup);
+    const filteredGroup = metricResponse.data?.result?.filter((mentry) => {
+      return consumerGroup.some(e => { return e === mentry.metric.group });
+    });
+    if (filteredGroup == "" || filteredGroup === undefined) {
+      setError(true);
     }
+    setFilteredResponse(filteredGroup);
     setLoading(false);
   }, [metricResponse]);
 
@@ -94,12 +96,12 @@ export function KafkaInfoComponent() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {parsedResponse.map((ent) => (
-              <TableRow key={ent.labels.topic}>
+            {filteredResponse?.map((ent) => (
+              <TableRow key={ent.metric.topic}>
                 <TableCell component="th" scope="row">
-                  {ent.labels.topic}
+                  {ent.metric.topic}
                 </TableCell>
-                <TableCell align="right">{ent.value}</TableCell>
+                <TableCell align="right">{ent.value[1]}</TableCell>
               </TableRow>
             ))}
           </TableBody>
