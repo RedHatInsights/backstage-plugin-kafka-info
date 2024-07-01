@@ -42,8 +42,7 @@ export function KafkaInfoComponent() {
     // Directly query a prometheus endpoint for metric data
     fetch(`${backendUrl}/api/proxy/kafka-lag/query?query=kafka_consumergroup_group_topic_sum_lag`)
       .then(response => {
-        const jsonMetrics = response.json();
-        return jsonMetrics
+        return response.json();
       })
       .then(text => {
         setMetricResponse(text);
@@ -57,6 +56,7 @@ export function KafkaInfoComponent() {
 
   useEffect(() => {
     setLoading(true);
+    setError(false);
     const filteredGroup = metricResponse.data?.result?.filter((mentry) => {
       return consumerGroup.some(e => { return e === mentry.metric.group });
     });
