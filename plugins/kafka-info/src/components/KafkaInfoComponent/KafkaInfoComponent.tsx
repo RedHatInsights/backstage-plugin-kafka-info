@@ -40,7 +40,7 @@ export function KafkaInfoComponent() {
   useEffect(() => {
     setLoading(true);
     // Directly query a prometheus endpoint for metric data
-    fetch(`${backendUrl}/api/proxy/kafka-lag/query?query=kafka_consumergroup_group_topic_sum_lag`)
+    fetch(`${backendUrl}/api/proxy/kafka-lag/query?query=aws_kafka_max_offset_lag_sum`)
       .then(response => {
         return response.json();
       })
