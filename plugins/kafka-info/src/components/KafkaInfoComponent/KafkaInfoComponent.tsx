@@ -8,7 +8,12 @@ import {
   TableCell,
   TableHead,
   TableRow,
-  Typography
+  Typography,
+  Grid,
+  FormControl,
+  MenuItem,
+  Select,
+  InputLabel,
 } from '@material-ui/core';
 import {
   InfoCard,
@@ -16,6 +21,19 @@ import {
 import { useEntity } from '@backstage/plugin-catalog-react';
 // These will let us get info about our backstage configuration
 import { useApi, configApiRef } from '@backstage/core-plugin-api';
+
+const clusterMap = {
+  stage: {
+    proxy: `kafka-lag-stage`,
+    name: 'Stage',
+  },
+  prod: {
+    proxy: `kafka-lag-prod`,
+    name: 'Prod',
+  },
+};
+
+const getClusterAttribute = (cluster, attribute) => clusterMap[cluster]?.[attribute] || '';
 
 export function KafkaInfoComponent() {
   const { entity } = useEntity();
@@ -26,6 +44,7 @@ export function KafkaInfoComponent() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [currentCluster, setCurrentCluster] = useState('stage');
 
   // Set up some state info for the response from the backend
   const [metricResponse, setMetricResponse] = useState<Object>({});
@@ -37,10 +56,10 @@ export function KafkaInfoComponent() {
   // Get defined consumer group from entity
   const consumerGroup = entity.metadata.annotations?.[KAFKA_INFO_ANNOTATION].split(',') ?? '';
 
-  useEffect(() => {
+  const fetchLags = (proxy) => {
     setLoading(true);
     // Directly query a prometheus endpoint for metric data
-    fetch(`${backendUrl}/api/proxy/kafka-lag/query?query=aws_kafka_max_offset_lag_sum`)
+    fetch(`${backendUrl}/api/proxy/${proxy}/query?query=aws_kafka_sum_offset_lag_sum`)
       .then(response => {
         return response.json();
       })
@@ -52,7 +71,11 @@ export function KafkaInfoComponent() {
         console.error('Error fetching topic data:', error);
         setLoading(false);
       });
-  }, []);
+  };
+
+  useEffect(() => {
+    fetchLags(getClusterAttribute(currentCluster, 'proxy'));
+  }, [currentCluster]);
 
   useEffect(() => {
     setLoading(true);
@@ -85,6 +108,24 @@ export function KafkaInfoComponent() {
     );
   }
 
+  const handleClusterChange = (event) => {
+    const selectedCluster = event.target.value;
+    setCurrentCluster(selectedCluster);
+  };
+
+  const ClusterSelect = () => (
+    <FormControl>
+      <InputLabel id="cluster-select-label">Cluster</InputLabel>
+      <Select labelId="cluster-select-label" id="cluster-select" value={currentCluster} onChange={handleClusterChange}>
+        {Object.keys(clusterMap).map((key) => (
+          <MenuItem key={key} value={key}>
+            {clusterMap[key].name}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  );
+
   const TopicsTable = () => {
     return (
       <TableContainer component={Paper}>
@@ -111,7 +152,15 @@ export function KafkaInfoComponent() {
   };
 
   return (
-    <InfoCard title={title} noPadding>
+    <InfoCard>
+      <Grid>
+        <Grid>
+          <Typography>${title}</Typography>
+        </Grid>
+        <Grid>
+          <ClusterSelect />
+        </Grid >
+      </Grid>
       <TopicsTable />
     </InfoCard>
   );
