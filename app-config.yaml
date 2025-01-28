@@ -51,8 +51,10 @@ proxy:
   #     target: 'https://example.com'
   #     changeOrigin: true
   endpoints:
-    '/kafka-lag':
+    '/kafka-lag-stage':
       target: 'https://prometheus-server/api/v1/'
+    '/kafka-lag-prod':
+      target: 'https://prometheus-server-prod/api/v1/'
 
 # Reference documentation http://backstage.io/docs/features/techdocs/configuration
 # Note: After experimenting with basic setup, use CI/CD to generate docs
