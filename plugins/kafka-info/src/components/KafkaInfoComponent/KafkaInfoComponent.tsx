@@ -10,11 +10,16 @@ import {
   TableRow,
   Typography,
   Grid,
-  FormControl,
   MenuItem,
-  Select,
-  InputLabel,
+  List,
+  ListItem,
+  ListItemText,
+  Menu,
+  IconButton,
+  ListItemSecondaryAction,
+  Box
 } from '@material-ui/core';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
   InfoCard,
 } from '@backstage/core-components';
@@ -22,20 +27,71 @@ import { useEntity } from '@backstage/plugin-catalog-react';
 // These will let us get info about our backstage configuration
 import { useApi, configApiRef } from '@backstage/core-plugin-api';
 
-const clusterMap = [
-  stage: {
-    proxy: `kafka-lag-stage`,
-    name: 'Stage',
-    token: '${STAGE_PROMETHEUS_TOKEN}',
-  },
-  prod: {
-    proxy: `kafka-lag-prod`,
-    name: 'Prod',
-    token: '${PROD_PROMETHEUS_TOKEN}',
-  },
-];
+const ClusterSelect = ({setCurrentClusterIdx, currentClusterIdx, clusterMap}) => {
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
-const getClusterAttribute = (cluster, attribute) => clusterMap[cluster]?.[attribute] || '';
+  const handleClickListItem = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuItemClick = (_event: React.MouseEvent<HTMLElement>, index: number) => {
+    setCurrentClusterIdx(index);
+    setAnchorEl(null);
+  }
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  return (
+    <div>
+    <List style={{ 
+        minHeight: 0,
+        padding: 0
+     }}>
+      <ListItem
+        button
+        aria-haspopup="true"
+        aria-controls="cluster-menu"
+        aria-label="Cluster"
+        onClick={handleClickListItem}
+        style={{
+          minHeight: 0,
+          padding: 0
+        }}
+      >
+        <IconButton aria-label="Select cluster">
+          <ExpandMoreIcon fontSize="small" />
+        </IconButton>
+        <Box
+          textAlign="right"
+          style={{ paddingRight: 5 }}
+        >
+          Cluster:
+        </Box>
+        <ListItemText secondary={clusterMap[currentClusterIdx].name} />
+      </ListItem>
+    </List>
+    <Menu
+      id="cluster-menu"
+      keepMounted
+      open={Boolean(anchorEl)}
+      onClose={handleClose}
+      anchorEl={anchorEl}
+    >
+      {clusterMap.map((cluster, index) => (
+        <MenuItem
+          key={cluster.name}
+          selected={index === currentClusterIdx}
+          onClick={(event) => handleMenuItemClick(event, index)}
+        >
+          {cluster.name}
+          </MenuItem>
+      ))}
+    </Menu>
+    </div>
+  )
+};
 
 export function KafkaInfoComponent() {
   const { entity } = useEntity();
@@ -46,43 +102,51 @@ export function KafkaInfoComponent() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [currentCluster, setCurrentCluster] = useState(clusterMap[0]);
+
+  // Pull the metric we're going to use to track our lag
+  const [lagMetric, _setLagMetric] = useState<string>(config.getString('kafkaInfo.lagMetric'));
 
   // Set up some state info for the response from the backend
   const [metricResponse, setMetricResponse] = useState<Object>({});
   const [filteredResponse, setFilteredResponse] = useState<Object>({});
 
+
+  // Get cluster config
+  const [clusterMap, _setClusterMap] = useState(config.get('kafkaInfo.clusters'));
+  const [currentClusterIdx, setCurrentClusterIdx] = useState(0);
+
   // Get backend URL from the config
-  const backendUrl = config.getString('backend.baseUrl');
+  const [backendUrl, _setBackendUrl] = useState(config.getString('backend.baseUrl'));
 
   // Get defined consumer group from entity
   const consumerGroup = entity.metadata.annotations?.[KAFKA_INFO_ANNOTATION].split(',') ?? '';
 
-  const fetchLags = (proxy, token) => {
-    setLoading(true);
-    // Directly query a prometheus endpoint for metric data
-    fetch(`${backendUrl}/api/proxy/${proxy}/query?query=aws_kafka_sum_offset_lag_sum`, {
-      method: "GET", 
-      headers: {"Authorization": `Bearer ${token}`, 
-      "Content-Type": "application/json" 
-      }
-    })
-      .then(response => {
-        return response.json();
-      })
-      .then(text => {
-        setMetricResponse(text);
-      })
-      .catch(error => {
-        setError(true);
-        console.error('Error fetching topic data:', error);
-        setLoading(false);
-      });
-  };
-
   useEffect(() => {
-    fetchLags(getClusterAttribute(currentCluster, 'proxy'));
-  }, [currentCluster]);
+    const getClusterAttribute = (attribute: string) => clusterMap[currentClusterIdx]?.[attribute] || '';
+    const fetchLags = (proxy: string) => {
+      setLoading(true);
+      // Directly query a prometheus endpoint for metric data
+      fetch(`${backendUrl}/api/proxy/${proxy}/api/v1/query?query=${lagMetric}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      })
+        .then(response => {
+          return response.json();
+        })
+        .then(text => {
+          setMetricResponse(text);
+        })
+        .catch(err => {
+          setError(true);
+          console.error('Error fetching topic data:', err);
+          setLoading(false);
+        });
+    };
+
+    fetchLags(getClusterAttribute('proxy'));
+  }, [backendUrl, currentClusterIdx, clusterMap, lagMetric]);
 
   useEffect(() => {
     setLoading(true);
@@ -90,16 +154,21 @@ export function KafkaInfoComponent() {
     const filteredGroup = metricResponse.data?.result?.filter((mentry) => {
       return consumerGroup.some(e => { return e === mentry.metric.group });
     });
-    if (filteredGroup == "" || filteredGroup === undefined) {
+    if (filteredGroup === "" || filteredGroup === undefined) {
       setError(true);
     }
     setFilteredResponse(filteredGroup);
     setLoading(false);
-  }, [metricResponse]);
+  }, [consumerGroup, metricResponse]);
 
   if (loading) {
     return (
       <InfoCard title={title}>
+        <Grid>
+          <Grid>
+            <ClusterSelect setCurrentClusterIdx={setCurrentClusterIdx} currentClusterIdx={currentClusterIdx} clusterMap={clusterMap}/>
+          </Grid >
+        </Grid>
         <Typography align="center" variant="body1">Loading...</Typography>
       </InfoCard>
     );
@@ -108,30 +177,11 @@ export function KafkaInfoComponent() {
   if (error) {
     return (
       <InfoCard title={title}>
-        <Typography align="center" variant="body1">
-          Error loading {title}.
-        </Typography>
+            <ClusterSelect setCurrentClusterIdx={setCurrentClusterIdx} currentClusterIdx={currentClusterIdx} clusterMap={clusterMap}/>
+            <Typography>Error loading Kafka Topic Information</Typography>
       </InfoCard>
     );
   }
-
-  const handleClusterChange = (event) => {
-    const selectedCluster = event.target.value;
-    setCurrentCluster(selectedCluster);
-  };
-
-  const ClusterSelect = () => (
-    <FormControl>
-      <InputLabel id="cluster-select-label">Cluster</InputLabel>
-      <Select labelId="cluster-select-label" id="cluster-select" value={currentCluster} onChange={handleClusterChange}>
-        {clusterMap.map((key) => (
-          <MenuItem key={key} value={key}>
-            {clusterMap[key].name}
-          </MenuItem>
-        ))}
-      </Select>
-    </FormControl>
-  );
 
   const TopicsTable = () => {
     return (
@@ -159,13 +209,10 @@ export function KafkaInfoComponent() {
   };
 
   return (
-    <InfoCard>
+    <InfoCard title={title}>
       <Grid>
         <Grid>
-          <Typography>${title}</Typography>
-        </Grid>
-        <Grid>
-          <ClusterSelect />
+          <ClusterSelect setCurrentClusterIdx={setCurrentClusterIdx} currentClusterIdx={currentClusterIdx} clusterMap={clusterMap}/>
         </Grid >
       </Grid>
       <TopicsTable />
