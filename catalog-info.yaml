@@ -1,13 +1,37 @@
+---
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: plugin-kafka-dev
-  description: An example of a Backstage application.
-  # Example for optional annotations
-  # annotations:
-  #   github.com/project-slug: backstage/backstage
-  #   backstage.io/techdocs-ref: dir:.
+  name: kafkaExample
+  title: Example For Kafka
+  description: |
+    Just a quick example
+
+  labels:
+    service: test
+    platform: example
+
+  tags:
+    - example
+
+  annotations:
+    # argocd/app-name: 'janus-idp'
+    kafka-info/consumer-groups: zomg
+
 spec:
-  type: website
-  owner: john@example.com
-  lifecycle: experimental
+  type: service
+  system: test
+  owner: example
+  lifecycle: OnBoarded
+  subcomponentOf: kafka-example-app
+#   dependsOn:
+#     - resource:pgdb
+#     - resource:argocd
+#     - resource:obc
+#     - resource:keycloak
+#     - resource:github
+
+  providesApis:
+  
+    - example
+  
