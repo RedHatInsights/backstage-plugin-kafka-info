@@ -62,11 +62,11 @@ proxy:
   #     changeOrigin: true
   endpoints:
     '/kafka-lag/stage':
-      target: 'https://prometheus-server/api/v1/'
+      target: 'https://prometheus-server/'
       headers:
         Authorization: "Bearer ${PROMETHEUS_STAGE_TOKEN}"
     '/kafka-lag/prod':
-      target: 'https://prometheus-server-prod/api/v1/'
+      target: 'https://prometheus-server-prod/'
       headers:
         Authorization: "Bearer ${PROMETHEUS_PROD_TOKEN}"
 
