@@ -16,7 +16,6 @@ import {
   ListItemText,
   Menu,
   IconButton,
-  ListItemSecondaryAction,
   Box
 } from '@material-ui/core';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -25,7 +24,7 @@ import {
 } from '@backstage/core-components';
 import { useEntity } from '@backstage/plugin-catalog-react';
 // These will let us get info about our backstage configuration
-import { useApi, configApiRef } from '@backstage/core-plugin-api';
+import { useApi, configApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 
 const ClusterSelect = ({setCurrentClusterIdx, currentClusterIdx, clusterMap}) => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -100,6 +99,9 @@ export function KafkaInfoComponent() {
   // Get the config object from backstage
   const config = useApi(configApiRef);
 
+  // Set up backstage fetchApi for authenticated routes
+  const fetchApi = useApi(fetchApiRef);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -126,7 +128,7 @@ export function KafkaInfoComponent() {
     const fetchLags = (proxy: string) => {
       setLoading(true);
       // Directly query a prometheus endpoint for metric data
-      fetch(`${backendUrl}/api/proxy/${proxy}/api/v1/query?query=${lagMetric}`, {
+      fetchApi.fetch(`${backendUrl}/api/proxy/${proxy}/api/v1/query?query=${lagMetric}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json"
