@@ -1,0 +1,9 @@
+#!/bin/bash
+
+yarn workspace @redhatinsights/backstage-plugin-kafka-info export-dynamic
+cd plugins/openshift/
+rm *.tgz
+npm pack ./dist-dynamic
+cd ../..
+mv plugins/openshift/*.tgz .
+sha256sum *.tgz | awk '{print $1}' | xxd -r -p | base64

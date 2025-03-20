@@ -1,6 +1,6 @@
 {
   "name": "@redhatinsights/backstage-plugin-kafka-info",
-  "version": "0.5.0",
+  "version": "1.0.0",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "license": "Apache-2.0",
@@ -31,10 +31,12 @@
   "dependencies": {
     "@backstage/core-components": "^0.14.8",
     "@backstage/core-plugin-api": "^1.9.3",
+    "@backstage/plugin-catalog-react": "^1.15.2",
     "@backstage/theme": "^0.5.6",
     "@material-ui/core": "^4.9.13",
     "@material-ui/icons": "^4.9.1",
     "@material-ui/lab": "4.0.0-alpha.61",
+    "@mui/icons-material": "^6.4.7",
     "parse-prometheus-text-format": "^1.1.1",
     "react-use": "^17.2.4"
   },
@@ -55,6 +57,8 @@
   },
   "files": [
     "dist",
-    "dist-scalprum"
-  ]
+    "dist-scalprum",
+    "config.d.ts"
+  ],
+  "configSchema": "config.d.ts"
 }

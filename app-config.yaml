@@ -43,6 +43,16 @@ integrations:
     #   apiBaseUrl: https://ghe.example.net/api/v3
     #   token: ${GHE_TOKEN}
 
+kafkaInfo:
+  # Metric we'll use for tracking topic use and lag
+  lagMetric: 'kafka_consumergroup_group_topic_sum_lag'
+  # Array of cluster proxies and environment names for Kafka environments
+  clusters:
+    - proxy: 'kafka-lag/prod'
+      name: 'Prod'
+    - proxy: 'kafka-lag/stage'
+      name: 'Stage'
+
 proxy:
   ### Example for how to add a proxy endpoint for the frontend.
   ### A typical reason to do this is to handle HTTPS and CORS for internal services.
@@ -51,8 +61,14 @@ proxy:
   #     target: 'https://example.com'
   #     changeOrigin: true
   endpoints:
-    '/kafka-lag':
-      target: 'https://prometheus-server/api/v1/'
+    '/kafka-lag/stage':
+      target: 'https://prometheus-server/'
+      headers:
+        Authorization: "Bearer ${PROMETHEUS_STAGE_TOKEN}"
+    '/kafka-lag/prod':
+      target: 'https://prometheus-server-prod/'
+      headers:
+        Authorization: "Bearer ${PROMETHEUS_PROD_TOKEN}"
 
 # Reference documentation http://backstage.io/docs/features/techdocs/configuration
 # Note: After experimenting with basic setup, use CI/CD to generate docs
@@ -82,5 +98,5 @@ catalog:
     - allow: [Component, System, User, Group, Resource, Location, Template, API]
   locations:
     - type: file
-      target: ../../catalog/all.yaml
+      target: ../../catalog-info.yaml
 

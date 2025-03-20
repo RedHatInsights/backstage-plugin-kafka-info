@@ -8,14 +8,89 @@ import {
   TableCell,
   TableHead,
   TableRow,
-  Typography
+  Typography,
+  Grid,
+  MenuItem,
+  List,
+  ListItem,
+  ListItemText,
+  Menu,
+  IconButton,
+  Box
 } from '@material-ui/core';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
   InfoCard,
 } from '@backstage/core-components';
 import { useEntity } from '@backstage/plugin-catalog-react';
 // These will let us get info about our backstage configuration
-import { useApi, configApiRef } from '@backstage/core-plugin-api';
+import { useApi, configApiRef, fetchApiRef } from '@backstage/core-plugin-api';
+
+const ClusterSelect = ({setCurrentClusterIdx, currentClusterIdx, clusterMap}) => {
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+
+  const handleClickListItem = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuItemClick = (_event: React.MouseEvent<HTMLElement>, index: number) => {
+    setCurrentClusterIdx(index);
+    setAnchorEl(null);
+  }
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  return (
+    <div>
+    <List style={{ 
+        minHeight: 0,
+        padding: 0
+     }}>
+      <ListItem
+        button
+        aria-haspopup="true"
+        aria-controls="cluster-menu"
+        aria-label="Cluster"
+        onClick={handleClickListItem}
+        style={{
+          minHeight: 0,
+          padding: 0
+        }}
+      >
+        <IconButton aria-label="Select cluster">
+          <ExpandMoreIcon fontSize="small" />
+        </IconButton>
+        <Box
+          textAlign="right"
+          style={{ paddingRight: 5 }}
+        >
+          Cluster:
+        </Box>
+        <ListItemText secondary={clusterMap[currentClusterIdx].name} />
+      </ListItem>
+    </List>
+    <Menu
+      id="cluster-menu"
+      keepMounted
+      open={Boolean(anchorEl)}
+      onClose={handleClose}
+      anchorEl={anchorEl}
+    >
+      {clusterMap.map((cluster, index) => (
+        <MenuItem
+          key={cluster.name}
+          selected={index === currentClusterIdx}
+          onClick={(event) => handleMenuItemClick(event, index)}
+        >
+          {cluster.name}
+          </MenuItem>
+      ))}
+    </Menu>
+    </div>
+  )
+};
 
 export function KafkaInfoComponent() {
   const { entity } = useEntity();
@@ -24,35 +99,56 @@ export function KafkaInfoComponent() {
   // Get the config object from backstage
   const config = useApi(configApiRef);
 
+  // Set up backstage fetchApi for authenticated routes
+  const fetchApi = useApi(fetchApiRef);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  // Pull the metric we're going to use to track our lag
+  const [lagMetric, _setLagMetric] = useState<string>(config.getString('kafkaInfo.lagMetric'));
 
   // Set up some state info for the response from the backend
   const [metricResponse, setMetricResponse] = useState<Object>({});
   const [filteredResponse, setFilteredResponse] = useState<Object>({});
 
+
+  // Get cluster config
+  const [clusterMap, _setClusterMap] = useState(config.get('kafkaInfo.clusters'));
+  const [currentClusterIdx, setCurrentClusterIdx] = useState(0);
+
   // Get backend URL from the config
-  const backendUrl = config.getString('backend.baseUrl');
+  const [backendUrl, _setBackendUrl] = useState(config.getString('backend.baseUrl'));
 
   // Get defined consumer group from entity
   const consumerGroup = entity.metadata.annotations?.[KAFKA_INFO_ANNOTATION].split(',') ?? '';
 
   useEffect(() => {
-    setLoading(true);
-    // Directly query a prometheus endpoint for metric data
-    fetch(`${backendUrl}/api/proxy/kafka-lag/query?query=aws_kafka_max_offset_lag_sum`)
-      .then(response => {
-        return response.json();
+    const getClusterAttribute = (attribute: string) => clusterMap[currentClusterIdx]?.[attribute] || '';
+    const fetchLags = (proxy: string) => {
+      setLoading(true);
+      // Directly query a prometheus endpoint for metric data
+      fetchApi.fetch(`${backendUrl}/api/proxy/${proxy}/api/v1/query?query=${lagMetric}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json"
+        }
       })
-      .then(text => {
-        setMetricResponse(text);
-      })
-      .catch(error => {
-        setError(true);
-        console.error('Error fetching topic data:', error);
-        setLoading(false);
-      });
-  }, []);
+        .then(response => {
+          return response.json();
+        })
+        .then(text => {
+          setMetricResponse(text);
+        })
+        .catch(err => {
+          setError(true);
+          console.error('Error fetching topic data:', err);
+          setLoading(false);
+        });
+    };
+
+    fetchLags(getClusterAttribute('proxy'));
+  }, [backendUrl, currentClusterIdx, clusterMap, lagMetric]);
 
   useEffect(() => {
     setLoading(true);
@@ -60,16 +156,21 @@ export function KafkaInfoComponent() {
     const filteredGroup = metricResponse.data?.result?.filter((mentry) => {
       return consumerGroup.some(e => { return e === mentry.metric.group });
     });
-    if (filteredGroup == "" || filteredGroup === undefined) {
+    if (filteredGroup === "" || filteredGroup === undefined) {
       setError(true);
     }
     setFilteredResponse(filteredGroup);
     setLoading(false);
-  }, [metricResponse]);
+  }, [consumerGroup, metricResponse]);
 
   if (loading) {
     return (
       <InfoCard title={title}>
+        <Grid>
+          <Grid>
+            <ClusterSelect setCurrentClusterIdx={setCurrentClusterIdx} currentClusterIdx={currentClusterIdx} clusterMap={clusterMap}/>
+          </Grid >
+        </Grid>
         <Typography align="center" variant="body1">Loading...</Typography>
       </InfoCard>
     );
@@ -78,9 +179,8 @@ export function KafkaInfoComponent() {
   if (error) {
     return (
       <InfoCard title={title}>
-        <Typography align="center" variant="body1">
-          Error loading {title}.
-        </Typography>
+            <ClusterSelect setCurrentClusterIdx={setCurrentClusterIdx} currentClusterIdx={currentClusterIdx} clusterMap={clusterMap}/>
+            <Typography>Error loading Kafka Topic Information</Typography>
       </InfoCard>
     );
   }
@@ -111,7 +211,12 @@ export function KafkaInfoComponent() {
   };
 
   return (
-    <InfoCard title={title} noPadding>
+    <InfoCard title={title}>
+      <Grid>
+        <Grid>
+          <ClusterSelect setCurrentClusterIdx={setCurrentClusterIdx} currentClusterIdx={currentClusterIdx} clusterMap={clusterMap}/>
+        </Grid >
+      </Grid>
       <TopicsTable />
     </InfoCard>
   );
