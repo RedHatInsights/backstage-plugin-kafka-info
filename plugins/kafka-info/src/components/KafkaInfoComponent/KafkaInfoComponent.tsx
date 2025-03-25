@@ -15,7 +15,7 @@ import {
 } from '@backstage/core-components';
 import { useEntity } from '@backstage/plugin-catalog-react';
 // These will let us get info about our backstage configuration
-import { useApi, configApiRef } from '@backstage/core-plugin-api';
+import { useApi, configApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 
 export function KafkaInfoComponent() {
   const { entity } = useEntity();
@@ -23,6 +23,7 @@ export function KafkaInfoComponent() {
 
   // Get the config object from backstage
   const config = useApi(configApiRef);
+  const fetchApi = useApi(fetchApiRef);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -40,7 +41,7 @@ export function KafkaInfoComponent() {
   useEffect(() => {
     setLoading(true);
     // Directly query a prometheus endpoint for metric data
-    fetch(`${backendUrl}/api/proxy/kafka-lag/query?query=aws_kafka_max_offset_lag_sum`)
+    fetchApi.fetch(`${backendUrl}/api/proxy/kafka-lag/query?query=aws_kafka_max_offset_lag_sum`)
       .then(response => {
         return response.json();
       })
