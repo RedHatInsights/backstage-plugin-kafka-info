@@ -6,6 +6,9 @@ organization:
   name: My Company
 
 backend:
+  auth:
+    # Used to allow unauthenticated access to plugins for dev env
+    dangerouslyDisableDefaultAuthPolicy: true
   # Used for enabling authentication, secret is shared by all backend plugins
   # See https://backstage.io/docs/auth/service-to-service-auth for
   # information on the format
@@ -45,7 +48,7 @@ integrations:
 
 kafkaInfo:
   # Metric we'll use for tracking topic use and lag
-  lagMetric: 'kafka_consumergroup_group_topic_sum_lag'
+  lagMetric: ${KAFKA_INFO_LAG_METRIC}
   # Array of cluster proxies and environment names for Kafka environments
   clusters:
     - proxy: 'kafka-lag/prod'
@@ -62,11 +65,11 @@ proxy:
   #     changeOrigin: true
   endpoints:
     '/kafka-lag/stage':
-      target: 'https://prometheus-server/'
+      target: ${PROMETHEUS_STAGE_SERVER}
       headers:
         Authorization: "Bearer ${PROMETHEUS_STAGE_TOKEN}"
     '/kafka-lag/prod':
-      target: 'https://prometheus-server-prod/'
+      target: ${PROMETHEUS_PROD_SERVER}
       headers:
         Authorization: "Bearer ${PROMETHEUS_PROD_TOKEN}"
 
