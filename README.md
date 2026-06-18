@@ -1,27 +1,79 @@
-# Kafka Info Dynamic Plugin
+# backstage-plugin-kafka-info
 
-This is a development mono-repo for the Kafka Info plugin. This mono-repo was created using @backstage/create-app to provide a backend and frontend for the plugin to integrate with.
+A [Backstage][backstage] frontend plugin that displays Kafka consumer lag information for catalog
+entities. It queries a [Prometheus][prometheus] instance through the Backstage proxy to show active
+topics and their current consumer lag in a table.
 
-You can find the plugin code in `plugins/kafka-info`
+## Features
 
-## Components
+- Displays Kafka consumer lag per topic for annotated catalog entities
+- Queries the `aws_kafka_max_offset_lag_sum` Prometheus metric via the Backstage proxy
+- Supports multiple consumer groups per entity (comma-separated annotation)
+- Renders as an entity page card (overview) or a dedicated tab
+- Works as both a static and [dynamic plugin][janus-idp] (via `janus-cli export-dynamic-plugin`)
 
-### Entity Page Cards
-This plugin provides a basic info card component that can be mounted on a catalog entry page.
-* `KafkaInfoComponent`: Shows active topics and and consumer lag for any catalog entry with the appropriate `kafka-info/consumer-groups` annotation.
+## Prerequisites
+
+- [Node.js][node] 22 or 24
+- [Yarn][yarn] 4.4.1+
+- A running [Backstage][backstage] instance (1.48.0+)
+- A Prometheus server exposing the `aws_kafka_max_offset_lag_sum` metric (e.g., via
+  [kafka-exporter][kafka-exporter] or [kafka-lag-exporter][kafka-lag-exporter])
+
+## Installation
+
+```sh
+yarn add @redhatinsights/backstage-plugin-kafka-info
+```
 
 ## Configuration
-This plugin requires an instance of seglo/lag-exporter or kafka-exporter and related prometheus server from which it pulls consumer information for annotated entities.
 
-In `app-config.yaml` first add the proxy:
+### Proxy
+
+Add a proxy endpoint in `app-config.yaml` to forward requests to the Prometheus server:
 
 ```yaml
 proxy:
   endpoints:
-    '/kafka-lag': 'https://prometheus_endpoint/'
+    '/kafka-lag':
+      target: 'https://your-prometheus-server/'
+      allowedHeaders: ['Authorization']
+      headers:
+        Authorization: "Bearer ${PROMETHEUS_TOKEN}"
 ```
 
-Also in `app-config.yaml` add `redhatinsights.backstage-plugin-kafka-info` and the card component configs into the dynamic plugins section.
+### Entity Annotation
+
+Add the `kafka-info/consumer-groups` annotation to any catalog entity that should display Kafka
+lag information. The value is a comma-separated list of consumer group names:
+
+```yaml
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: my-service
+  annotations:
+    kafka-info/consumer-groups: my-consumer-group,another-group
+spec:
+  type: service
+  owner: my-team
+```
+
+### Static Plugin Usage
+
+Import the plugin component and predicate, then mount them on the entity page:
+
+```tsx
+import {
+  EntityKafkaInfoContent,
+  isPluginApplicableToEntity,
+} from '@redhatinsights/backstage-plugin-kafka-info';
+```
+
+### Dynamic Plugin Usage
+
+To use as a dynamic plugin, add the following to the `dynamicPlugins` section of
+`app-config.yaml`:
 
 ```yaml
 dynamicPlugins:
@@ -38,18 +90,80 @@ dynamicPlugins:
                 xs: "span 4"
 ```
 
-Finally, for any component where Kafka consumer information is desired, add the annotation `kafka-info/consumer-groups: consumer-group1,consumer-group2`.
+## Usage
+
+Once configured, navigate to any catalog entity that has the `kafka-info/consumer-groups`
+annotation. The plugin renders a "Kafka Information" card showing a table of topics and their
+current consumer lag values.
 
 ## Development
-To start the app, run:
+
+This repository is a Yarn workspaces monorepo with an example Backstage app for local development.
+
+### Install dependencies
 
 ```sh
 yarn install
+```
+
+### Start the development server
+
+```sh
 yarn start
 ```
 
-Before you do, you'll likely want to have catalog entries to see the plugin working on. Check out AppStage for that. 
+### Build all packages
 
-### Build the Dynamic Plugin
-Run `./build` - the packed tarball for the release along with its integrity sha will be generated.
+```sh
+yarn build:all
+```
 
+### Run tests
+
+```sh
+yarn test
+yarn test:all    # with coverage
+```
+
+### Lint
+
+```sh
+yarn lint
+yarn lint:all    # all files (not just changed since origin/main)
+```
+
+### Type check
+
+```sh
+yarn tsc
+```
+
+### Check formatting
+
+```sh
+yarn prettier:check
+```
+
+### Build dynamic plugin
+
+```sh
+yarn export-dynamic
+```
+
+## Contributing
+
+See [CONTRIBUTING.md][contributing] for guidelines on how to contribute to this project.
+
+## License
+
+This project is licensed under the [Apache License 2.0][license].
+
+[backstage]: https://backstage.io
+[contributing]: ./CONTRIBUTING.md
+[janus-idp]: https://janus-idp.io
+[kafka-exporter]: https://github.com/danielqsj/kafka_exporter
+[kafka-lag-exporter]: https://github.com/seglo/kafka-lag-exporter
+[license]: https://www.apache.org/licenses/LICENSE-2.0
+[node]: https://nodejs.org
+[prometheus]: https://prometheus.io
+[yarn]: https://yarnpkg.com
